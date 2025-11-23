@@ -1,146 +1,88 @@
-import json
-import os
-from typing import List, Dict, Any
+import datetime
 
-TASK_FILE = "tasks.json"
+class Task:
+    def __init__(self, description, priority="medium"):
+        self.description = description
+        self.priority = priority
+        self.created_date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.is_completed = False
 
-def load_tasks() -> List[Dict[str, Any]]:
-    """Loads tasks from the JSON file, or returns an empty list if the file doesn't exist."""
-    # Check if the file exists
-    if not os.path.exists(TASK_FILE):
-        return []
-    
-    try:
-        with open(TASK_FILE, 'r') as file:
-            return json.load(file)
-    except json.JSONDecodeError:
-        print(f"Warning: {TASK_FILE} is corrupted or empty. Starting with an empty task list.")
-        return []
-    except Exception as e:
-        print(f"An error occurred while loading tasks: {e}")
-        return []
+    def mark_complete(self):
+        self.is_completed = True
 
-def save_tasks(tasks: List[Dict[str, Any]]):
-    """Saves the current list of tasks to the JSON file."""
-    try:
-        with open(TASK_FILE, 'w') as file:
-            json.dump(tasks, file, indent=4)
-    except Exception as e:
-        print(f"An error occurred while saving tasks: {e}")
+    def __str__(self):
+        status = "Completed" if self.is_completed else "Pending"
+        return f"[{status}] (Priority: {self.priority.capitalize()}) Created: {self.created_date} - {self.description}"
 
-def add_task(tasks: List[Dict[str, Any]]):
-    """Prompts the user for a task description and adds it to the list."""
-    description = input("Enter the new task description: ").strip()
-    
-    if description:
-        new_task = {
-            "id": len(tasks) + 1,
-            "description": description,
-            "done": False
-        }
-        tasks.append(new_task)
-        save_tasks(tasks)
-        print(f"\n✅ Task '{description}' added successfully.")
-    else:
-        print("\n❌ Task description cannot be empty.")
+class TaskManager:
+    def __init__(self):
+        self.tasks = []
 
-def view_tasks(tasks: List[Dict[str, Any]]):
-    """Displays all tasks with their ID, status, and description."""
-    print("\n" + "="*40)
-    print("           📋 TO-DO LIST 📋")
-    print("="*40)
-    
-    if not tasks:
-        print("    The task list is currently empty.")
-    else:
-        print(f"| {'ID':<4} | {'Status':<8} | {'Task Description':<20} |")
-        print("-" * 40)
+    def add_task(self, description, priority="medium"):
+        new_task = Task(description, priority)
+        self.tasks.append(new_task)
+        print(f"Task added: '{description}'")
+
+    def view_tasks(self):
+        if not self.tasks:
+            print("No tasks found.")
+            return
+
+        pending = [t for t in self.tasks if not t.is_completed]
+        completed = [t for t in self.tasks if t.is_completed]
+
+        print("\n--- Pending Tasks ---")
+        if not pending:
+            print("None.")
+        for i, task in enumerate(pending):
+            print(f"{i + 1}. {task}")
         
-        for task in tasks:
-            status = "✅ Done" if task["done"] else "⏳ Pending"
-            print(f"| {task['id']:<4} | {status:<8} | {task['description'][:20]:<20} |")
-    
-    print("="*40)
+        print("\n--- Completed Tasks ---")
+        if not completed:
+            print("None.")
+        for task in completed:
+            print(f"- {task}")
+        print("---------------------\n")
 
-def mark_task_done(tasks: List[Dict[str, Any]]):
-    """Marks a task as done based on its ID."""
-    view_tasks(tasks)
-    if not tasks:
-        return
+    def complete_task(self, task_index):
+        pending_tasks = [t for t in self.tasks if not t.is_completed]
         
-    try:
-        task_id = int(input("Enter the ID of the task to mark as DONE: "))
-    except ValueError:
-        print("\n❌ Invalid input. Please enter a valid number for the ID.")
-        return
-
-    # Find the task by ID
-    found = False
-    for task in tasks:
-        if task["id"] == task_id:
-            task["done"] = True
-            found = True
-            save_tasks(tasks)
-            print(f"\n🎉 Task ID {task_id} marked as DONE: '{task['description']}'")
-            break
-            
-    if not found:
-        print(f"\n❌ Task with ID {task_id} not found.")
-
-def delete_task(tasks: List[Dict[str, Any]]):
-    """Deletes a task based on its ID."""
-    view_tasks(tasks)
-    if not tasks:
-        return
-        
-    try:
-        task_id = int(input("Enter the ID of the task to DELETE: "))
-    except ValueError:
-        print("\n❌ Invalid input. Please enter a valid number for the ID.")
-        return
-
-    initial_length = len(tasks)
-    tasks[:] = [task for task in tasks if task["id"] != task_id]
-    
-    if len(tasks) < initial_length:
-        for i, task in enumerate(tasks):
-            task['id'] = i + 1
-            
-        save_tasks(tasks)
-        print(f"\n🗑️ Task with ID {task_id} successfully deleted.")
-    else:
-        print(f"\n❌ Task with ID {task_id} not found.")
+        if 0 <= task_index < len(pending_tasks):
+            pending_tasks[task_index].mark_complete()
+            print(f"Task '{pending_tasks[task_index].description}' marked as complete.")
+        else:
+            print("Invalid task number.")
 
 
-def main():
-    tasks = load_tasks() 
-
+def main_menu():
+    manager = TaskManager()
     while True:
-        print("\n" + "*"*40)
-        print("    Python Task Management System CLI")
-        print("*"*40)
+        print("\nPython Task Manager")
         print("1. Add a new task")
         print("2. View all tasks")
-        print("3. Mark task as done")
-        print("4. Delete a task")
-        print("5. Exit")
-        print("*"*40)
-
-        choice = input("Enter your choice (1-5): ")
+        print("3. Mark a task as complete")
+        print("4. Exit")
+        choice = input("Enter your choice: ")
 
         if choice == '1':
-            add_task(tasks)
+            desc = input("Enter task description: ")
+            priority = input("Enter priority (low, medium, high - default is medium): ") or "medium"
+            manager.add_task(desc, priority)
         elif choice == '2':
-            view_tasks(tasks)
+            manager.view_tasks()
         elif choice == '3':
-            mark_task_done(tasks)
+            manager.view_tasks()
+            if not [t for t in manager.tasks if not t.is_completed]:
+                continue
+            try:
+                task_num = int(input("Enter the number of the task to complete (from pending list): ")) - 1
+                manager.complete_task(task_num)
+            except ValueError:
+                print("Invalid input. Please enter a number.")
         elif choice == '4':
-            delete_task(tasks)
-        elif choice == '5':
-            print("\n👋 Saving and exiting. Goodbye!")
             break
         else:
-            print("\n⚠️ Invalid choice. Please enter a number between 1 and 5.")
+            print("Invalid choice. Please try again.")
 
 if __name__ == "__main__":
-    main()
+    main_menu()
